@@ -14,7 +14,8 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CORELIB_DIR="${REPO_ROOT}/corelib"
 GUI_CSPROJ="${REPO_ROOT}/GUI/CapstoneController/CapstoneController.csproj"
 
-OUT_DIR="${SCRIPT_DIR}/artifacts"
+# Output goes into the repo-root build/ directory (per project convention)
+OUT_DIR="${REPO_ROOT}/build"
 NATIVE_OUT_DIR="${OUT_DIR}/native/linux-arm64"
 APP_OUT_DIR="${OUT_DIR}/app/linux-arm64"
 
@@ -31,7 +32,7 @@ Builds the native corelib library and publishes the GUI app for linux-arm64.
 Options:
   --corelib-only   Build only the C++ corelib library
   --gui-only       Publish only the GUI app
-  --clean          Remove run/artifacts before building
+  --clean          Remove build/{native,app} before building
 EOF
 }
 
@@ -50,7 +51,8 @@ for arg in "$@"; do
 done
 
 if [[ "$DO_CLEAN" -eq 1 ]]; then
-  rm -rf "$OUT_DIR"
+  # Only remove the publish outputs, not any other build/ content.
+  rm -rf "${OUT_DIR}/native" "${OUT_DIR}/app"
 fi
 
 mkdir -p "$NATIVE_OUT_DIR" "$APP_OUT_DIR"

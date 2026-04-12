@@ -112,3 +112,7 @@ build/
 ############################################
 GUI/**/bin/
 GUI/**/obj/
+
+# publish.sh output
+build/
+run/artifacts/
