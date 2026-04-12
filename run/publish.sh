@@ -23,6 +23,51 @@ CXX="${CXX:-g++}"
 AR="${AR:-ar}"
 DOTNET="${DOTNET:-dotnet}"
 
+require_tool() {
+  local tool="$1"
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "ERROR: Required tool not found in PATH: $tool" >&2
+    exit 1
+  fi
+}
+
+check_cxx_header() {
+  local header="$1"
+  # Use the compiler preprocessor to verify headers are available.
+  if ! echo "#include <$header>" | "$CXX" -E -x c++ - >/dev/null 2>&1; then
+    return 1
+  fi
+  return 0
+}
+
+ensure_corelib_deps() {
+  if ! check_cxx_header "alsa/asoundlib.h"; then
+    cat >&2 <<'EOF'
+ERROR: Missing ALSA development headers (alsa/asoundlib.h).
+
+On Raspberry Pi OS / Debian/Ubuntu, install:
+  sudo apt-get update
+  sudo apt-get install -y libasound2-dev
+
+Then re-run ./publish.sh
+EOF
+    exit 1
+  fi
+
+  if ! check_cxx_header "linux/i2c-dev.h"; then
+    cat >&2 <<'EOF'
+ERROR: Missing Linux I2C dev header (linux/i2c-dev.h).
+
+On Raspberry Pi OS / Debian/Ubuntu, try installing the libc kernel headers:
+  sudo apt-get update
+  sudo apt-get install -y linux-libc-dev
+
+Then re-run ./publish.sh
+EOF
+    exit 1
+  fi
+}
+
 usage() {
   cat <<'EOF'
 Usage: ./publish.sh [--corelib-only | --gui-only] [--clean]
@@ -60,19 +105,24 @@ mkdir -p "$NATIVE_OUT_DIR" "$APP_OUT_DIR"
 build_corelib() {
   echo "==> Building corelib (native, linux-arm64)"
 
+  require_tool "$CXX"
+  require_tool "$AR"
+  ensure_corelib_deps
+
   local obj_dir="${NATIVE_OUT_DIR}/obj"
   mkdir -p "$obj_dir"
 
   # Only compile the library sources (exclude main.cpp, which is a sample/CLI entry).
-  "$CXX" -std=c++17 -O2 -DNDEBUG -fPIC \
+  "$CXX" -std=c++17 -O2 -DNDEBUG -fPIC -pthread \
     -I"${CORELIB_DIR}" \
     -c "${CORELIB_DIR}/corelib_c_api.cpp" \
     -o "${obj_dir}/corelib_c_api.o"
 
   # Shared library for DllImport("corelib") on Linux -> libcorelib.so
-  "$CXX" -shared \
+  "$CXX" -shared -pthread \
     -o "${NATIVE_OUT_DIR}/libcorelib.so" \
-    "${obj_dir}/corelib_c_api.o"
+    "${obj_dir}/corelib_c_api.o" \
+    -lasound
 
   # Optional static library
   "$AR" rcs "${NATIVE_OUT_DIR}/libcorelib.a" "${obj_dir}/corelib_c_api.o"
@@ -82,6 +132,8 @@ build_corelib() {
 
 publish_gui() {
   echo "==> Publishing GUI (dotnet, linux-arm64)"
+
+  require_tool "$DOTNET"
 
   "$DOTNET" publish "$GUI_CSPROJ" \
     -c Release \
