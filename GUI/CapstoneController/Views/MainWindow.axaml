@@ -1,0 +1,328 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:CapstoneController.ViewModels"
+        xmlns:controls="using:CapstoneController.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="1024"
+        d:DesignHeight="600"
+        Width="1024"
+        Height="600"
+        MinWidth="1024"
+        MinHeight="600"
+        MaxWidth="1024"
+        MaxHeight="600"
+        x:Class="CapstoneController.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="CapstoneController"
+        WindowState="FullScreen"
+        SystemDecorations="None"
+        Background="#11161C">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#11161C"/>
+        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#1A222C"/>
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#2F3B4A"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#3A86FF"/>
+        <SolidColorBrush x:Key="AccentPressedBrush" Color="#2F6FD6"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="#2E8B57"/>
+        <SolidColorBrush x:Key="DangerBrush" Color="#B00020"/>
+        <SolidColorBrush x:Key="DangerPressedBrush" Color="#8A0018"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F5F7FA"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B8C2CC"/>
+        <SolidColorBrush x:Key="InputBackgroundBrush" Color="#0F141A"/>
+        <SolidColorBrush x:Key="TabHeaderHighlightBrush" Color="#FFD166"/>
+    </Window.Resources>
+
+    <Window.Styles>
+
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+
+        <Style Selector="Border.Panel">
+            <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Padding" Value="20" />
+        </Style>
+
+        <Style Selector="TextBlock.MicroLabel">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.TabHeaderHighlight">
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TabHeaderHighlightBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.SectionHeader">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="TextBlock.Label">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.Value">
+            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="Height" Value="56" />
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="Height" Value="60" />
+            <Setter Property="FontSize" Value="21" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+
+        <Style Selector="Button.Primary:pressed">
+            <Setter Property="Background" Value="{DynamicResource AccentPressedBrush}" />
+        </Style>
+
+        <Style Selector="Button.EmergencyStop">
+            <Setter Property="Height" Value="104" />
+            <Setter Property="FontSize" Value="30" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="CornerRadius" Value="20" />
+        </Style>
+
+        <Style Selector="Button.EmergencyStop:pressed">
+            <Setter Property="Background" Value="{DynamicResource DangerPressedBrush}" />
+        </Style>
+
+        <Style Selector="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="56"/>
+            <Setter Property="Padding" Value="20,10"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Width="1024"
+          Height="600"
+          RowDefinitions="*,Auto"
+          Margin="18">
+
+        <!-- Main Content -->
+        <Grid Grid.Row="0"
+              ColumnDefinitions="560,428"
+              ColumnSpacing="18">
+
+            <!-- LEFT SIDE -->
+            <StackPanel Grid.Column="0" Spacing="18">
+
+                <Border Classes="Panel">
+                    <StackPanel Spacing="16">
+                        <TextBlock Classes="SectionHeader" Text="Control Mode"/>
+
+                        <TabControl SelectedIndex="{Binding ControlModeIndex, Mode=TwoWay}">
+                            <TabItem>
+                                <TabItem.Header>
+                                    <TextBlock Classes="TabHeaderHighlight" Text="Manual"/>
+                                </TabItem.Header>
+
+                                <Border Background="Transparent" Padding="0,16,0,0">
+                                    <StackPanel Spacing="18">
+
+                                        <TextBlock Classes="Label"
+                                                   Text="Set a single output frequency manually."/>
+
+                                        <Grid ColumnDefinitions="170,150,180"
+                                              ColumnSpacing="12"
+                                              VerticalAlignment="Center">
+                                            <TextBlock Classes="Label"
+                                                       VerticalAlignment="Center"
+                                                       Text="Frequency (Hz)"/>
+
+                                            <TextBox Grid.Column="1"
+                                                     Text="{Binding FrequencyInput}"
+                                                     TextAlignment="Center"/>
+
+                                            <Button Grid.Column="2"
+                                                    Classes="Primary"
+                                                    Content="Set Frequency"
+                                                    Command="{Binding SetFrequencyCommand}"/>
+                                        </Grid>
+
+                                    </StackPanel>
+                                </Border>
+                            </TabItem>
+
+                            <TabItem>
+                                <TabItem.Header>
+                                    <TextBlock Classes="TabHeaderHighlight" Text="Sweep"/>
+                                </TabItem.Header>
+
+                                <Border Background="Transparent" Padding="0,16,0,0">
+                                    <StackPanel Spacing="18">
+
+                                        <TextBlock Classes="Label"
+                                                   Text="Sweep across a frequency range."/>
+
+                                        <Grid ColumnDefinitions="190,150"
+                                              RowDefinitions="Auto,Auto,Auto"
+                                              ColumnSpacing="14"
+                                              RowSpacing="14">
+
+                                            <TextBlock Grid.Row="0"
+                                                       Classes="Label"
+                                                       VerticalAlignment="Center"
+                                                       Text="Start Frequency (Hz)"/>
+                                            <TextBox Grid.Row="0"
+                                                     Grid.Column="1"
+                                                     Text="{Binding SweepStartFrequency}"
+                                                     TextAlignment="Center"/>
+
+                                            <TextBlock Grid.Row="1"
+                                                       Classes="Label"
+                                                       VerticalAlignment="Center"
+                                                       Text="End Frequency (Hz)"/>
+                                            <TextBox Grid.Row="1"
+                                                     Grid.Column="1"
+                                                     Text="{Binding SweepEndFrequency}"
+                                                     TextAlignment="Center"/>
+
+                                            <TextBlock Grid.Row="2"
+                                                       Classes="Label"
+                                                       VerticalAlignment="Center"
+                                                       Text="Sweep Rate"/>
+                                            <TextBox Grid.Row="2"
+                                                     Grid.Column="1"
+                                                     Text="{Binding SweepRate}"
+                                                     TextAlignment="Center"/>
+                                        </Grid>
+
+                                        <Button Classes="Primary"
+                                                Width="210"
+                                                HorizontalAlignment="Left"
+                                                Content="Start Sweep"
+                                                Command="{Binding StartSweepCommand}"/>
+
+                                    </StackPanel>
+                                </Border>
+                            </TabItem>
+                        </TabControl>
+                    </StackPanel>
+                </Border>
+
+                <Grid ColumnDefinitions="310,232"
+                      ColumnSpacing="18"
+                      VerticalAlignment="Center">
+                    <Button Grid.Column="0"
+                            Classes="EmergencyStop"
+                            Content="STOP OUTPUT"
+                            Command="{Binding StopCommand}"/>
+
+                    <Border Grid.Column="1"
+                            Classes="Panel"
+                            IsVisible="{Binding IsManualMode}"
+                            Padding="14">
+                        <StackPanel Spacing="6" HorizontalAlignment="Center">
+                            <TextBlock Classes="Label"
+                                       Text="Fine tune"
+                                       HorizontalAlignment="Center"/>
+                            <controls:CircularDialControl Width="170"
+                                                          Height="170"
+                                                          Margin="0,-6,0,4"
+                                                          FineTuneRange="20"
+                                                          Step="0.1"
+                                                          Value="{Binding ManualFrequencyValue, Mode=TwoWay}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+
+            <!-- RIGHT SIDE -->
+            <StackPanel Grid.Column="1" Spacing="18">
+
+                <Border Classes="Panel">
+                    <StackPanel Spacing="16">
+                        <TextBlock Classes="SectionHeader" Text="Output Preview"/>
+
+                        <TextBlock Classes="Label"
+                                   Text="Display-only preview of the generated waveform"/>
+
+                        <controls:SineWaveGraphControl Height="250"
+                                                       FrequencyHz="{Binding SetFrequencyHz}"
+                                                       IsAnimated="{Binding IsShowingOutput}"/>
+
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              ColumnSpacing="12"
+                              VerticalAlignment="Center">
+                            <TextBlock Classes="Label" Text="Volume" VerticalAlignment="Center"/>
+                            <Slider Grid.Column="1"
+                                Minimum="0"
+                                Maximum="100"
+                                Value="{Binding VolumePercent, Mode=TwoWay}"
+                                VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2"
+                                   Classes="Label"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding VolumePercent, StringFormat={}{0:0}%}"/>
+                        </Grid>
+
+                        <Button Classes="Primary"
+                                Content="Toggle Preview"
+                                Command="{Binding ShowOutputCommand}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+
+        <!-- Footer -->
+        <Grid Grid.Row="1"
+              Margin="0,14,0,0"
+              ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0"
+                       VerticalAlignment="Center"
+                       Classes="Label"
+                       Text="Capstone shaker control panel"/>
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        Spacing="12"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Right">
+                <TextBlock Classes="MicroLabel" Text="{Binding CurrentFrequencyDisplay, StringFormat=Freq: {0}}" />
+                <TextBlock Classes="MicroLabel" Text="{Binding StatusText, StringFormat=State: {0}}" />
+                <TextBlock Classes="MicroLabel" Text="{Binding ConnectionStatus, StringFormat=Conn: {0}}" />
+                <TextBlock Classes="MicroLabel" Text="{Binding OutputStatus, StringFormat=Out: {0}}" />
+            </StackPanel>
+        </Grid>
+
+    </Grid>
+</Window>
