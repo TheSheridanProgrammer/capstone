@@ -14,22 +14,17 @@ public class CircularDialControl : Control
             defaultValue: 0d,
             defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
 
-    public static readonly StyledProperty<double> FineTuneRangeProperty =
-        AvaloniaProperty.Register<CircularDialControl, double>(nameof(FineTuneRange), 20d);
-
     public static readonly StyledProperty<double> StepProperty =
         AvaloniaProperty.Register<CircularDialControl, double>(nameof(Step), 0.1d);
+
+    // Hz added or removed for one full 360° turn.
+    public static readonly StyledProperty<double> HzPerTurnProperty =
+        AvaloniaProperty.Register<CircularDialControl, double>(nameof(HzPerTurn), 100d);
 
     public double Value
     {
         get => GetValue(ValueProperty);
         set => SetValue(ValueProperty, value);
-    }
-
-    public double FineTuneRange
-    {
-        get => GetValue(FineTuneRangeProperty);
-        set => SetValue(FineTuneRangeProperty, value);
     }
 
     public double Step
@@ -38,13 +33,21 @@ public class CircularDialControl : Control
         set => SetValue(StepProperty, value);
     }
 
+    public double HzPerTurn
+    {
+        get => GetValue(HzPerTurnProperty);
+        set => SetValue(HzPerTurnProperty, value);
+    }
+
     static CircularDialControl()
     {
-        AffectsRender<CircularDialControl>(ValueProperty, FineTuneRangeProperty, StepProperty);
+        AffectsRender<CircularDialControl>(ValueProperty, StepProperty, HzPerTurnProperty);
     }
 
     private bool _isDragging;
-    private double _baseValue;
+    private double _dragStartValue;
+    private double _previousPointerAngle;
+    private double _accumulatedDragAngle;
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
@@ -53,10 +56,14 @@ public class CircularDialControl : Control
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
 
-        _baseValue = Value;
+        var pos = e.GetPosition(this);
+
         _isDragging = true;
+        _dragStartValue = Value;
+        _previousPointerAngle = GetPointerAngleRadians(pos);
+        _accumulatedDragAngle = 0;
+
         e.Pointer.Capture(this);
-        UpdateFromPoint(e.GetPosition(this));
         e.Handled = true;
     }
 
@@ -67,7 +74,23 @@ public class CircularDialControl : Control
         if (!_isDragging)
             return;
 
-        UpdateFromPoint(e.GetPosition(this));
+        var pos = e.GetPosition(this);
+        var currentAngle = GetPointerAngleRadians(pos);
+
+        var delta = NormalizeAngleDelta(currentAngle - _previousPointerAngle);
+        _previousPointerAngle = currentAngle;
+
+        _accumulatedDragAngle += delta;
+
+        var turns = _accumulatedDragAngle / (Math.PI * 2);
+        var hzPerTurn = HzPerTurn;
+        if (double.IsNaN(hzPerTurn) || double.IsInfinity(hzPerTurn) || hzPerTurn <= 0)
+            hzPerTurn = 100;
+
+        // Screen coordinates make clockwise come out positive with this setup.
+        var rawValue = _dragStartValue + (turns * hzPerTurn);
+        SetCurrentValue(ValueProperty, Snap(Math.Max(0, rawValue)));
+
         e.Handled = true;
     }
 
@@ -79,8 +102,6 @@ public class CircularDialControl : Control
             return;
 
         _isDragging = false;
-        // Re-center the jog dial after interaction.
-        _baseValue = Value;
         e.Pointer.Capture(null);
         e.Handled = true;
     }
@@ -98,7 +119,7 @@ public class CircularDialControl : Control
             step = 0.1;
 
         var next = Value + (delta > 0 ? step : -step);
-        SetCurrentValue(ValueProperty, Snap(next));
+        SetCurrentValue(ValueProperty, Snap(Math.Max(0, next)));
         e.Handled = true;
     }
 
@@ -106,87 +127,118 @@ public class CircularDialControl : Control
     {
         base.Render(context);
 
-        // When not actively dragging, keep the dial centered (pointing up)
-        // around the current value.
-        if (!_isDragging)
-            _baseValue = Value;
-
         var bounds = Bounds;
         var size = Math.Min(bounds.Width, bounds.Height);
         if (size <= 0)
             return;
 
         var center = bounds.Center;
-        var radius = size * 0.48;
-        var ringThickness = Math.Max(2, size * 0.06);
+        var radius = size * 0.47;
+
+        var outerRingThickness = Math.Max(2, size * 0.045);
+        var innerRingThickness = Math.Max(1, size * 0.012);
 
         var borderBrush = TryFindBrush("PanelBorderBrush") ?? Brushes.Gray;
-        var accentBrush = TryFindBrush("AccentBrush") ?? Brushes.White;
+        var accentBrush = TryFindBrush("AccentBrush") ?? Brushes.DodgerBlue;
         var backgroundBrush = TryFindBrush("InputBackgroundBrush") ?? Brushes.Black;
+        var highlightBrush = new SolidColorBrush(Color.FromArgb(30, 255, 255, 255));
+        var tickBrush = TryFindBrush("TextSecondaryBrush") ?? Brushes.DarkGray;
 
-        var circleRect = new Rect(center.X - radius, center.Y - radius, radius * 2, radius * 2);
-
-        // Base fill + ring
+        // Main body
         context.DrawEllipse(backgroundBrush, null, center, radius, radius);
-        context.DrawEllipse(null, new Pen(borderBrush, ringThickness), center, radius - ringThickness * 0.5, radius - ringThickness * 0.5);
 
-        // Indicator
-        var range = FineTuneRange;
-        if (double.IsNaN(range) || double.IsInfinity(range) || range <= 0)
-            range = 20;
+        // Outer ring
+        context.DrawEllipse(
+            null,
+            new Pen(borderBrush, outerRingThickness),
+            center,
+            radius - outerRingThickness * 0.5,
+            radius - outerRingThickness * 0.5);
 
-        // Map base-range..base+range to [0..1]
-        var min = _baseValue - range;
-        var max = _baseValue + range;
-        var t = (Value - min) / (max - min);
-        t = Math.Clamp(t, 0, 1);
+        // Inner subtle ring
+        context.DrawEllipse(
+            null,
+            new Pen(new SolidColorBrush(Color.FromArgb(60, 255, 255, 255)), innerRingThickness),
+            center,
+            radius * 0.72,
+            radius * 0.72);
 
-        // Sweep from left (−) to right (+) passing through up at center.
-        // left  = 180°
-        // center= 270° (up)
-        // right = 360°
-        var startAngle = DegreesToRadians(180);
-        var endAngle = DegreesToRadians(360);
-        var angle = startAngle + (endAngle - startAngle) * t;
+        // Soft top highlight
+        var highlightRect = new Rect(center.X - radius * 0.72, center.Y - radius * 0.72, radius * 1.44, radius * 0.72);
+        context.DrawEllipse(highlightBrush, null,
+            new Point(highlightRect.Center.X, highlightRect.Center.Y),
+            highlightRect.Width / 2,
+            highlightRect.Height / 2);
 
-        var inner = radius * 0.2;
-        var outer = radius * 0.85;
-        var p1 = new Point(center.X + Math.Cos(angle) * inner, center.Y + Math.Sin(angle) * inner);
-        var p2 = new Point(center.X + Math.Cos(angle) * outer, center.Y + Math.Sin(angle) * outer);
+        // 12 small ticks around the dial
+        for (int i = 0; i < 12; i++)
+        {
+            var angle = (-Math.PI / 2) + (i * (Math.PI * 2 / 12.0));
+            var tickOuter = radius * 0.88;
+            var tickInner = i % 3 == 0 ? radius * 0.72 : radius * 0.78;
 
-        context.DrawLine(new Pen(accentBrush, Math.Max(2, size * 0.045), lineCap: PenLineCap.Round), p1, p2);
+            var p1 = new Point(
+                center.X + Math.Cos(angle) * tickInner,
+                center.Y + Math.Sin(angle) * tickInner);
 
-        // Center dot
-        context.DrawEllipse(accentBrush, null, center, Math.Max(2, size * 0.04), Math.Max(2, size * 0.04));
+            var p2 = new Point(
+                center.X + Math.Cos(angle) * tickOuter,
+                center.Y + Math.Sin(angle) * tickOuter);
+
+            context.DrawLine(new Pen(tickBrush, i % 3 == 0 ? 2 : 1), p1, p2);
+        }
+
+        // Pointer angle:
+        // 12 o'clock is the baseline, and every full turn corresponds to HzPerTurn.
+        var hzPerTurn = HzPerTurn;
+        if (double.IsNaN(hzPerTurn) || double.IsInfinity(hzPerTurn) || hzPerTurn <= 0)
+            hzPerTurn = 100;
+
+        var turnsFromZero = Value / hzPerTurn;
+        var pointerAngle = (-Math.PI / 2) + (turnsFromZero * Math.PI * 2);
+
+        var pointerStart = new Point(
+            center.X + Math.Cos(pointerAngle) * (radius * 0.18),
+            center.Y + Math.Sin(pointerAngle) * (radius * 0.18));
+
+        var pointerEnd = new Point(
+            center.X + Math.Cos(pointerAngle) * (radius * 0.72),
+            center.Y + Math.Sin(pointerAngle) * (radius * 0.72));
+
+        // Pointer glow underlay
+        context.DrawLine(
+            new Pen(new SolidColorBrush(Color.FromArgb(70, 255, 255, 255)), Math.Max(4, size * 0.06), lineCap: PenLineCap.Round),
+            pointerStart,
+            pointerEnd);
+
+        // Pointer
+        context.DrawLine(
+            new Pen(accentBrush, Math.Max(3, size * 0.038), lineCap: PenLineCap.Round),
+            pointerStart,
+            pointerEnd);
+
+        // Center cap
+        context.DrawEllipse(borderBrush, null, center, radius * 0.09, radius * 0.09);
+        context.DrawEllipse(accentBrush, null, center, radius * 0.045, radius * 0.045);
     }
 
-    private void UpdateFromPoint(Point p)
+    private double GetPointerAngleRadians(Point p)
     {
-        var bounds = Bounds;
-        var center = bounds.Center;
+        var center = Bounds.Center;
         var dx = p.X - center.X;
         var dy = p.Y - center.Y;
+        return Math.Atan2(dy, dx);
+    }
 
-        // Convert to angle in radians [-PI..PI]
-        var angle = Math.Atan2(dy, dx);
+    private static double NormalizeAngleDelta(double delta)
+    {
+        while (delta > Math.PI)
+            delta -= Math.PI * 2;
 
-        // Normalize to [0..2PI)
-        if (angle < 0)
-            angle += Math.PI * 2;
+        while (delta < -Math.PI)
+            delta += Math.PI * 2;
 
-        // Sweep from 180° (left) to 360° (right) passing through 270° (up)
-        var start = DegreesToRadians(180);
-        var end = DegreesToRadians(360);
-        var clampedAngle = Math.Clamp(angle, start, end);
-        var t = (clampedAngle - start) / (end - start);
-
-        var range = FineTuneRange;
-        if (double.IsNaN(range) || double.IsInfinity(range) || range <= 0)
-            range = 20;
-
-        var raw = (_baseValue - range) + t * (range * 2);
-        var snapped = Snap(raw);
-        SetCurrentValue(ValueProperty, snapped);
+        return delta;
     }
 
     private double Snap(double value)
@@ -205,6 +257,4 @@ public class CircularDialControl : Control
 
         return null;
     }
-
-    private static double DegreesToRadians(double degrees) => degrees * (Math.PI / 180d);
 }

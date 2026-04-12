@@ -6,6 +6,8 @@ using System;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
 namespace CapstoneController.ViewModels
@@ -33,6 +35,7 @@ namespace CapstoneController.ViewModels
             StartOutputCommand = new AsyncRelayCommand(StartOutputAsync);
             StopCommand = new RelayCommand(StopOutput);
             ShowOutputCommand = new RelayCommand(TogglePreview);
+            QuitCommand = new RelayCommand(Quit);
         }
 
         [ObservableProperty]
@@ -100,6 +103,19 @@ namespace CapstoneController.ViewModels
         public IAsyncRelayCommand StartOutputCommand { get; }
         public IRelayCommand StopCommand { get; }
         public IRelayCommand ShowOutputCommand { get; }
+        public IRelayCommand QuitCommand { get; }
+
+        private void Quit()
+        {
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+                return;
+            }
+
+            // Fallback: best-effort shutdown for other lifetimes.
+            Environment.Exit(0);
+        }
 
         private async Task SetFrequencyAsync()
         {

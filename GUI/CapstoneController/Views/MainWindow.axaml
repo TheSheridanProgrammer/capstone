@@ -130,6 +130,24 @@
             <Setter Property="MinHeight" Value="56"/>
             <Setter Property="Padding" Value="20,10"/>
         </Style>
+
+        <Style Selector="Button.WindowClose">
+            <Setter Property="Width" Value="54" />
+            <Setter Property="Height" Value="54" />
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.WindowClose:pressed">
+            <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+        </Style>
     </Window.Styles>
 
     <Grid Width="1024"
@@ -258,7 +276,7 @@
                             <controls:CircularDialControl Width="170"
                                                           Height="170"
                                                           Margin="0,-6,0,4"
-                                                          FineTuneRange="20"
+                                                          HzPerTurn="100"
                                                           Step="0.1"
                                                           Value="{Binding ManualFrequencyValue, Mode=TwoWay}"/>
                         </StackPanel>
@@ -302,6 +320,13 @@
                 </Border>
             </StackPanel>
         </Grid>
+
+        <Button Grid.Row="0"
+                Classes="WindowClose"
+                Content="X"
+                Command="{Binding QuitCommand}"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"/>
 
         <!-- Footer -->
         <Grid Grid.Row="1"

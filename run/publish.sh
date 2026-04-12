@@ -21,7 +21,26 @@ APP_OUT_DIR="${OUT_DIR}/app/linux-arm64"
 
 CXX="${CXX:-g++}"
 AR="${AR:-ar}"
-DOTNET="${DOTNET:-dotnet}"
+DOTNET="${DOTNET:-}"
+
+resolve_dotnet() {
+  if [[ -n "${DOTNET}" ]]; then
+    return 0
+  fi
+
+  if command -v dotnet >/dev/null 2>&1; then
+    DOTNET="dotnet"
+    return 0
+  fi
+
+  # Common local install location from dotnet-install.sh
+  if [[ -x "${HOME}/.dotnet/dotnet" ]]; then
+    DOTNET="${HOME}/.dotnet/dotnet"
+    return 0
+  fi
+
+  return 1
+}
 
 require_tool() {
   local tool="$1"
@@ -109,20 +128,30 @@ build_corelib() {
   require_tool "$AR"
   ensure_corelib_deps
 
+  local alsa_cflags=""
+  local alsa_libs="-lasound"
+  if command -v pkg-config >/dev/null 2>&1; then
+    if pkg-config --exists alsa 2>/dev/null; then
+      alsa_cflags="$(pkg-config --cflags alsa)"
+      alsa_libs="$(pkg-config --libs alsa)"
+    fi
+  fi
+
   local obj_dir="${NATIVE_OUT_DIR}/obj"
   mkdir -p "$obj_dir"
 
   # Only compile the library sources (exclude main.cpp, which is a sample/CLI entry).
   "$CXX" -std=c++17 -O2 -DNDEBUG -fPIC -pthread \
     -I"${CORELIB_DIR}" \
+    ${alsa_cflags} \
     -c "${CORELIB_DIR}/corelib_c_api.cpp" \
     -o "${obj_dir}/corelib_c_api.o"
 
   # Shared library for DllImport("corelib") on Linux -> libcorelib.so
-  "$CXX" -shared -pthread \
+  "$CXX" -shared -pthread -Wl,--no-undefined \
     -o "${NATIVE_OUT_DIR}/libcorelib.so" \
     "${obj_dir}/corelib_c_api.o" \
-    -lasound
+    ${alsa_libs}
 
   # Optional static library
   "$AR" rcs "${NATIVE_OUT_DIR}/libcorelib.a" "${obj_dir}/corelib_c_api.o"
@@ -132,6 +161,21 @@ build_corelib() {
 
 publish_gui() {
   echo "==> Publishing GUI (dotnet, linux-arm64)"
+
+  if ! resolve_dotnet; then
+    cat <<'EOF'
+dotnet SDK not found.
+
+Install .NET 9 SDK (example using dotnet-install.sh):
+  curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+  chmod +x /tmp/dotnet-install.sh
+  /tmp/dotnet-install.sh --channel 9.0 --quality ga --install-dir "$HOME/.dotnet"
+  export PATH="$HOME/.dotnet:$PATH"
+
+Or set DOTNET=/path/to/dotnet when running this script.
+EOF
+    return 1
+  fi
 
   require_tool "$DOTNET"
 
