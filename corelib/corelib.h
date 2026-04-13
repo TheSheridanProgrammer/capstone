@@ -336,7 +336,9 @@ int open_i2c_device(const AccelConfig& cfg) {
 		return -1;
 	}
 	if (ioctl(fd, I2C_SLAVE, cfg.i2c_addr_7bit) < 0) {
+		const int e = errno;
 		::close(fd);
+		errno = e;
 		return -1;
 	}
 	return fd;
@@ -399,8 +401,13 @@ uint16_t calibrate_accel_baseline(const AccelConfig& cfg,
 								std::chrono::seconds duration = std::chrono::seconds(3)) {
 	const int fd = open_i2c_device(cfg);
 	if (fd < 0) {
+		const int e = errno;
 		std::cerr << "Accel: calibration failed to open I2C device " << cfg.i2c_dev
-		          << " addr 0x" << std::hex << cfg.i2c_addr_7bit << std::dec << "\n";
+		          << " addr 0x" << std::hex << cfg.i2c_addr_7bit << std::dec;
+		if (e != 0) {
+			std::cerr << " (errno=" << e << ": " << std::strerror(e) << ")";
+		}
+		std::cerr << "\n";
 		std::cout << "READING STOPPED\n";
 		return 0;
 	}
@@ -529,8 +536,13 @@ bool parse_csv3(const std::string& line, long* a, long* b, long* c) {
 void accel_reader_thread(const AccelConfig cfg) {
 	int fd = open_i2c_device(cfg);
 	if (fd < 0) {
+		const int e = errno;
 		std::cerr << "Accel: failed to open I2C device " << cfg.i2c_dev
-		          << " addr 0x" << std::hex << cfg.i2c_addr_7bit << std::dec << "\n";
+		          << " addr 0x" << std::hex << cfg.i2c_addr_7bit << std::dec;
+		if (e != 0) {
+			std::cerr << " (errno=" << e << ": " << std::strerror(e) << ")";
+		}
+		std::cerr << "\n";
 		return;
 	}
 
@@ -722,6 +734,21 @@ inline int start(int argc, const char* const* argv, const Callbacks* callbacks =
 	// Self-config step: sample accelerometer for ~3 seconds and compute baseline.
 	// This runs before audio playback starts.
 	AccelConfig accel_cfg{};
+	std::string accel_i2c_dev_override;
+	if (const char* env_dev = std::getenv("CORELIB_ACCEL_I2C_DEV")) {
+		if (env_dev && *env_dev) {
+			accel_i2c_dev_override = env_dev;
+			accel_cfg.i2c_dev = accel_i2c_dev_override.c_str();
+		}
+	}
+	if (const char* env_addr = std::getenv("CORELIB_ACCEL_I2C_ADDR")) {
+		char* end = nullptr;
+		errno = 0;
+		const long v = std::strtol(env_addr, &end, 0); // base 0: supports 0x..
+		if (errno == 0 && end != env_addr && end && *end == '\0' && v >= 0x03 && v <= 0x77) {
+			accel_cfg.i2c_addr_7bit = static_cast<int>(v);
+		}
+	}
 	AccelToHzConfig axis_cfg{};  // default axis is Z
 	axis_cfg.base_hz = frequency_hz;
 	const uint16_t baseline = calibrate_accel_baseline(accel_cfg, axis_cfg, std::chrono::seconds(3));

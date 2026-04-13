@@ -314,6 +314,45 @@
                                     </StackPanel>
                                 </Border>
                             </TabItem>
+
+                            <TabItem>
+                                <TabItem.Header>
+                                    <TextBlock Classes="TabHeaderHighlight" Text="Accel"/>
+                                </TabItem.Header>
+
+                                <Border Background="Transparent" Padding="0,16,0,0">
+                                    <StackPanel Spacing="14">
+                                        <TextBlock Classes="Label" Text="Live accelerometer readings + sine fit (Y axis)."/>
+
+                                        <Border Classes="Panel" Padding="14">
+                                            <StackPanel Spacing="10">
+                                                <TextBlock Classes="MicroLabel" Text="{Binding AccelStatus}" />
+                                                <TextBlock Classes="MicroLabel" Text="{Binding AccelLastSampleText}" />
+
+                                                <controls:AccelGraphControl Height="220"
+                                                                            Samples="{Binding AccelYSamples}"
+                                                                            FitSamples="{Binding AccelSineFitSamples}"
+                                                                            ShowFit="{Binding IsAccelFitOverlayEnabled}"
+                                                                            YLabel="Accel Y (raw counts)" />
+
+                                                <Grid ColumnDefinitions="Auto,Auto,*,Auto"
+                                                      ColumnSpacing="12"
+                                                      VerticalAlignment="Center">
+                                                    <Button Grid.Column="0" Classes="Primary" Content="Fit Sine" Command="{Binding FitAccelSineCommand}"/>
+                                                    <Button Grid.Column="1" Content="Clear" Command="{Binding ClearAccelCommand}"/>
+                                                    <CheckBox Grid.Column="3"
+                                                              Content="Show fit"
+                                                              IsChecked="{Binding IsAccelFitOverlayEnabled, Mode=TwoWay}" />
+                                                </Grid>
+
+                                                <TextBlock TextWrapping="Wrap"
+                                                           Classes="MicroLabel"
+                                                           Text="{Binding AccelSineFitEquation}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </TabItem>
                         </TabControl>
                     </StackPanel>
                 </Border>

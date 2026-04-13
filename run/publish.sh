@@ -196,11 +196,14 @@ if [[ "$DO_GUI" -eq 1 ]]; then
   publish_gui
 fi
 
-# If we built both, place the native library alongside the published app
+# If we built corelib, place the native library alongside the published app
 # so the runtime loader can find it without extra LD_LIBRARY_PATH configuration.
-if [[ "$DO_CORELIB" -eq 1 && "$DO_GUI" -eq 1 ]]; then
-  echo "==> Copying libcorelib.so next to published app"
-  cp -f "${NATIVE_OUT_DIR}/libcorelib.so" "${APP_OUT_DIR}/libcorelib.so"
+# This also supports --corelib-only rebuilds (as long as the app dir exists).
+if [[ "$DO_CORELIB" -eq 1 ]]; then
+  if [[ -d "${APP_OUT_DIR}" ]]; then
+    echo "==> Copying libcorelib.so next to published app"
+    cp -f "${NATIVE_OUT_DIR}/libcorelib.so" "${APP_OUT_DIR}/libcorelib.so"
+  fi
 fi
 
 echo "==> Done"

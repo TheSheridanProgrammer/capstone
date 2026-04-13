@@ -22,6 +22,20 @@ extern "C" double corelib_get_current_frequency_hz(void) {
 	return corelib::g_current_frequency_hz.load();
 }
 
+extern "C" int corelib_get_accel_sample(uint16_t* x, uint16_t* y, uint16_t* z, double* mapped_hz) {
+	if (!x || !y || !z || !mapped_hz) {
+		return 2;
+	}
+	if (!corelib::g_accel_last_valid.load()) {
+		return 1;
+	}
+	*x = corelib::g_accel_last_x.load();
+	*y = corelib::g_accel_last_y.load();
+	*z = corelib::g_accel_last_z.load();
+	*mapped_hz = corelib::g_accel_last_mapped_hz.load();
+	return 0;
+}
+
 extern "C" int corelib_get_accel_sample_ex(uint16_t* x, uint16_t* y, uint16_t* z, double* mapped_hz, int16_t* temp_centi_c) {
 	if (!x || !y || !z || !mapped_hz || !temp_centi_c) {
 		return 2;

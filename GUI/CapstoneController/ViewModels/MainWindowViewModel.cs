@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using CapstoneController.Interop;
 using CapstoneController.Services;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +21,12 @@ namespace CapstoneController.ViewModels
         private CancellationTokenSource? _volumeCts;
         private bool _stopRequested;
         private Window? _graphDetailWindow;
+
+        private readonly DispatcherTimer _accelTimer;
+        private readonly object _accelMu = new();
+        private readonly List<double> _accelY = new(capacity: 400);
+        private uint _lastAccelTimestampUs;
+        private bool _hasLastAccelTimestamp;
 
         public MainWindowViewModel()
         {
@@ -43,6 +50,16 @@ namespace CapstoneController.ViewModels
 
             ZoomInCommand = new RelayCommand(ZoomIn);
             ZoomOutCommand = new RelayCommand(ZoomOut);
+
+            FitAccelSineCommand = new RelayCommand(FitAccelSine);
+            ClearAccelCommand = new RelayCommand(ClearAccel);
+
+            _accelTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(50),
+            };
+            _accelTimer.Tick += (_, _) => PollAccel();
+            _accelTimer.Start();
 
             OpenFrequencyNumpadCommand = new RelayCommand(OpenFrequencyNumpad);
             CloseFrequencyNumpadCommand = new RelayCommand(CloseFrequencyNumpad);
@@ -113,6 +130,24 @@ namespace CapstoneController.ViewModels
         private double graphZoom = 1.0;
 
         [ObservableProperty]
+        private string accelStatus = "No accel data";
+
+        [ObservableProperty]
+        private string accelLastSampleText = "";
+
+        [ObservableProperty]
+        private string accelSineFitEquation = "Fit: (not calculated)";
+
+        [ObservableProperty]
+        private double[]? accelYSamples;
+
+        [ObservableProperty]
+        private double[]? accelSineFitSamples;
+
+        [ObservableProperty]
+        private bool isAccelFitOverlayEnabled = true;
+
+        [ObservableProperty]
         private double volumePercent = 50;
 
         [ObservableProperty]
@@ -127,6 +162,9 @@ namespace CapstoneController.ViewModels
 
         public IRelayCommand ZoomInCommand { get; }
         public IRelayCommand ZoomOutCommand { get; }
+
+        public IRelayCommand FitAccelSineCommand { get; }
+        public IRelayCommand ClearAccelCommand { get; }
 
         public IRelayCommand OpenFrequencyNumpadCommand { get; }
         public IRelayCommand CloseFrequencyNumpadCommand { get; }
@@ -318,6 +356,225 @@ namespace CapstoneController.ViewModels
         private void ZoomOut()
         {
             GraphZoom = Math.Clamp(GraphZoom / 1.25, 0.25, 8.0);
+        }
+
+        private void PollAccel()
+        {
+            var rc = NativeMethods.TryGetAccelSample(out var s);
+            if (rc == 1)
+            {
+                AccelStatus = "No accel data (start output to begin sampling)";
+                return;
+            }
+            if (rc != 0)
+            {
+                AccelStatus = "Accel read error";
+                return;
+            }
+
+            // De-dupe identical timestamps when timestamped API is available.
+            if (s.TimestampUs != 0)
+            {
+                if (_hasLastAccelTimestamp && s.TimestampUs == _lastAccelTimestampUs)
+                    return;
+                _hasLastAccelTimestamp = true;
+                _lastAccelTimestampUs = s.TimestampUs;
+            }
+
+            AccelStatus = "Receiving accel data";
+            AccelLastSampleText = $"t={s.TimestampUs}us  x={s.X}  y={s.Y}  z={s.Z}  temp={(s.TempCentiC / 100.0):0.00}C";
+
+            lock (_accelMu)
+            {
+                _accelY.Add(s.Y);
+                const int max = 400;
+                if (_accelY.Count > max)
+                    _accelY.RemoveRange(0, _accelY.Count - max);
+
+                // Update plotted samples (copy for thread-safety + render invalidation).
+                AccelYSamples = _accelY.ToArray();
+            }
+        }
+
+        private void ClearAccel()
+        {
+            lock (_accelMu)
+            {
+                _accelY.Clear();
+            }
+
+            AccelYSamples = Array.Empty<double>();
+            AccelSineFitSamples = null;
+            AccelSineFitEquation = "Fit: (not calculated)";
+            AccelStatus = "Cleared accel buffer";
+        }
+
+        private void FitAccelSine()
+        {
+            double[] y;
+            lock (_accelMu)
+            {
+                if (_accelY.Count < 60)
+                {
+                    AccelSineFitEquation = "Fit: not enough samples yet";
+                    return;
+                }
+
+                // Fit last ~1 second (up to 200 samples at 200 Hz).
+                const int fitN = 200;
+                var start = Math.Max(0, _accelY.Count - fitN);
+                y = _accelY.GetRange(start, _accelY.Count - start).ToArray();
+            }
+
+            // If timestamped API isn't available, assume nominal accel sample rate.
+            const double assumedHz = 200.0;
+            var dt = 1.0 / assumedHz;
+
+            var best = FindBestSineFit(y, dt);
+            if (!best.Success)
+            {
+                AccelSineFitEquation = "Fit: failed";
+                return;
+            }
+
+            AccelSineFitSamples = best.Fit;
+            AccelSineFitEquation = $"y(t) = {best.Offset:0.###} + {best.Amplitude:0.###} * sin(2π * {best.FrequencyHz:0.###} * t + {best.PhaseRad:0.###})   (R²={best.R2:0.###})";
+            AccelStatus = "Sine fit updated";
+        }
+
+        private readonly record struct SineFitResult(bool Success, double FrequencyHz, double Amplitude, double PhaseRad, double Offset, double R2, double[] Fit);
+
+        private static SineFitResult FindBestSineFit(double[] y, double dt)
+        {
+            // Guard
+            if (y.Length < 3 || !(dt > 0))
+                return new SineFitResult(false, 0, 0, 0, 0, 0, Array.Empty<double>());
+
+            // Remove a constant baseline in the model itself (offset term), but we still compute SST for R^2.
+            var mean = 0.0;
+            for (var i = 0; i < y.Length; i++) mean += y[i];
+            mean /= y.Length;
+
+            var sst = 0.0;
+            for (var i = 0; i < y.Length; i++)
+            {
+                var d = y[i] - mean;
+                sst += d * d;
+            }
+            if (!(sst > 1e-9))
+                sst = 1.0;
+
+            // Sampling ~200 Hz => Nyquist ~100 Hz. Keep a margin.
+            var fMin = 0.5;
+            var fMax = 90.0;
+
+            // Coarse then refine around best.
+            var bestF = 0.0;
+            var bestErr = double.PositiveInfinity;
+            var bestABC = (a: 0.0, b: 0.0, c: mean);
+
+            void Evaluate(double f)
+            {
+                var w = 2.0 * Math.PI * f;
+                // Solve least squares for y = a*sin(wt) + b*cos(wt) + c
+                // Normal equations for 3 params.
+                double s11 = 0, s12 = 0, s13 = 0, s22 = 0, s23 = 0, s33 = y.Length;
+                double t1 = 0, t2 = 0, t3 = 0;
+
+                for (var i = 0; i < y.Length; i++)
+                {
+                    var t = i * dt;
+                    var s = Math.Sin(w * t);
+                    var c0 = Math.Cos(w * t);
+                    var yi = y[i];
+
+                    s11 += s * s;
+                    s12 += s * c0;
+                    s13 += s;
+                    s22 += c0 * c0;
+                    s23 += c0;
+
+                    t1 += s * yi;
+                    t2 += c0 * yi;
+                    t3 += yi;
+                }
+
+                // Matrix:
+                // [s11 s12 s13] [a] = [t1]
+                // [s12 s22 s23] [b]   [t2]
+                // [s13 s23 s33] [c]   [t3]
+                // Solve via Cramer's rule / elimination (small 3x3).
+
+                // Gaussian elimination
+                var A11 = s11; var A12 = s12; var A13 = s13; var B1 = t1;
+                var A21 = s12; var A22 = s22; var A23 = s23; var B2 = t2;
+                var A31 = s13; var A32 = s23; var A33 = s33; var B3 = t3;
+
+                // Pivot 1
+                if (Math.Abs(A11) < 1e-12)
+                    return;
+                var m21 = A21 / A11;
+                var m31 = A31 / A11;
+                A21 -= m21 * A11; A22 -= m21 * A12; A23 -= m21 * A13; B2 -= m21 * B1;
+                A31 -= m31 * A11; A32 -= m31 * A12; A33 -= m31 * A13; B3 -= m31 * B1;
+
+                // Pivot 2
+                if (Math.Abs(A22) < 1e-12)
+                    return;
+                var m32 = A32 / A22;
+                A31 -= m32 * A21; A32 -= m32 * A22; A33 -= m32 * A23; B3 -= m32 * B2;
+
+                // Back-sub
+                if (Math.Abs(A33) < 1e-12)
+                    return;
+
+                var c = B3 / A33;
+                var b = (B2 - A23 * c) / A22;
+                var a = (B1 - A12 * b - A13 * c) / A11;
+
+                // Compute SSE
+                var sse = 0.0;
+                for (var i = 0; i < y.Length; i++)
+                {
+                    var t = i * dt;
+                    var yhat = (a * Math.Sin(w * t)) + (b * Math.Cos(w * t)) + c;
+                    var e = y[i] - yhat;
+                    sse += e * e;
+                }
+
+                if (sse < bestErr)
+                {
+                    bestErr = sse;
+                    bestF = f;
+                    bestABC = (a, b, c);
+                }
+            }
+
+            for (double f = fMin; f <= fMax; f += 0.5)
+                Evaluate(f);
+
+            if (!(bestF > 0))
+                return new SineFitResult(false, 0, 0, 0, 0, 0, Array.Empty<double>());
+
+            var refineMin = Math.Max(fMin, bestF - 1.0);
+            var refineMax = Math.Min(fMax, bestF + 1.0);
+            for (double f = refineMin; f <= refineMax; f += 0.05)
+                Evaluate(f);
+
+            var wBest = 2.0 * Math.PI * bestF;
+            var (aa, bb, cc) = bestABC;
+            var amp = Math.Sqrt((aa * aa) + (bb * bb));
+            var phase = Math.Atan2(bb, aa);
+
+            var fit = new double[y.Length];
+            for (var i = 0; i < y.Length; i++)
+            {
+                var t = i * dt;
+                fit[i] = (aa * Math.Sin(wBest * t)) + (bb * Math.Cos(wBest * t)) + cc;
+            }
+
+            var r2 = 1.0 - (bestErr / sst);
+            return new SineFitResult(true, bestF, amp, phase, cc, r2, fit);
         }
 
         private void OpenFrequencyNumpad()

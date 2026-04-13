@@ -31,6 +31,11 @@ CORELIB_C_API double corelib_get_current_frequency_hz(void);
 // Returns 0 if a sample was written, 1 if no sample is available yet, 2 on invalid args.
 CORELIB_C_API int corelib_get_accel_sample(uint16_t* x, uint16_t* y, uint16_t* z, double* mapped_hz);
 
+// Timestamped variant (microseconds from firmware).
+// - t_us is a 32-bit micros() from the XIAO firmware (wraps).
+// Returns 0 if a sample was written, 1 if no sample is available yet, 2 on invalid args.
+CORELIB_C_API int corelib_get_accel_sample_ts(uint32_t* t_us, uint16_t* x, uint16_t* y, uint16_t* z, double* mapped_hz);
+
 // Extended variant that also returns the latest LM35 reading.
 // - temp_centi_c is centi-degrees Celsius from firmware (e.g. 2534 => 25.34 C).
 // Returns 0 if a sample was written, 1 if no sample is available yet, 2 on invalid args.

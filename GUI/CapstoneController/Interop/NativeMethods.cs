@@ -17,6 +17,32 @@ namespace CapstoneController.Interop
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         private static extern int corelib_set_frequency_hz(double frequency_hz);
 
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int corelib_get_accel_sample_ex(
+            out ushort x,
+            out ushort y,
+            out ushort z,
+            out double mapped_hz,
+            out short temp_centi_c);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int corelib_get_accel_sample_ts(
+            out uint t_us,
+            out ushort x,
+            out ushort y,
+            out ushort z,
+            out double mapped_hz);
+
+        internal readonly record struct AccelSample(
+            uint TimestampUs,
+            ushort X,
+            ushort Y,
+            ushort Z,
+            double MappedHz,
+            short TempCentiC);
+
+        private static bool _accelTsAvailable = true;
+
         internal static int Start(params string[] args)
         {
             if (args == null)
@@ -102,6 +128,42 @@ namespace CapstoneController.Interop
                 startHz.ToString(CultureInfo.InvariantCulture),
                 endHz.ToString(CultureInfo.InvariantCulture),
                 stepHz.ToString(CultureInfo.InvariantCulture));
+        }
+
+        internal static int TryGetAccelSample(out AccelSample sample)
+        {
+            sample = default;
+
+            // Prefer timestamped samples if the native lib exports it.
+            if (_accelTsAvailable)
+            {
+                try
+                {
+                    var rcTs = corelib_get_accel_sample_ts(out var tUs, out var x, out var y, out var z, out var mappedHz);
+                    if (rcTs != 0)
+                        return rcTs;
+
+                    // Temp is optional for the UI; best-effort.
+                    var temp = (short)0;
+                    if (corelib_get_accel_sample_ex(out _, out _, out _, out _, out var tempCentiC) == 0)
+                        temp = tempCentiC;
+
+                    sample = new AccelSample(tUs, x, y, z, mappedHz, temp);
+                    return 0;
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    _accelTsAvailable = false;
+                }
+            }
+
+            // Fallback: no timestamp; caller can assume fixed sample rate.
+            var rc = corelib_get_accel_sample_ex(out var fx, out var fy, out var fz, out var fmapped, out var ftemp);
+            if (rc != 0)
+                return rc;
+
+            sample = new AccelSample(0, fx, fy, fz, fmapped, ftemp);
+            return 0;
         }
     }
 }
