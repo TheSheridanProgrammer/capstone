@@ -16,6 +16,7 @@ namespace CapstoneController.ViewModels
     {
         private Task<int>? _nativeRunTask;
         private CancellationTokenSource? _volumeCts;
+        private bool _stopRequested;
 
         public MainWindowViewModel()
         {
@@ -36,6 +37,13 @@ namespace CapstoneController.ViewModels
             StopCommand = new RelayCommand(StopOutput);
             ShowOutputCommand = new RelayCommand(TogglePreview);
             QuitCommand = new RelayCommand(Quit);
+
+            OpenFrequencyNumpadCommand = new RelayCommand(OpenFrequencyNumpad);
+            CloseFrequencyNumpadCommand = new RelayCommand(CloseFrequencyNumpad);
+            FrequencyNumpadKeyCommand = new RelayCommand<string>(FrequencyNumpadKey);
+            FrequencyNumpadBackspaceCommand = new RelayCommand(FrequencyNumpadBackspace);
+            FrequencyNumpadClearCommand = new RelayCommand(FrequencyNumpadClear);
+            FrequencyNumpadOkCommand = new RelayCommand(FrequencyNumpadOk);
         }
 
         [ObservableProperty]
@@ -98,12 +106,22 @@ namespace CapstoneController.ViewModels
         [ObservableProperty]
         private double volumePercent = 50;
 
+        [ObservableProperty]
+        private bool isFrequencyNumpadOpen;
+
         public IAsyncRelayCommand SetFrequencyCommand { get; }
         public IAsyncRelayCommand StartSweepCommand { get; }
         public IAsyncRelayCommand StartOutputCommand { get; }
         public IRelayCommand StopCommand { get; }
         public IRelayCommand ShowOutputCommand { get; }
         public IRelayCommand QuitCommand { get; }
+
+        public IRelayCommand OpenFrequencyNumpadCommand { get; }
+        public IRelayCommand CloseFrequencyNumpadCommand { get; }
+        public IRelayCommand<string> FrequencyNumpadKeyCommand { get; }
+        public IRelayCommand FrequencyNumpadBackspaceCommand { get; }
+        public IRelayCommand FrequencyNumpadClearCommand { get; }
+        public IRelayCommand FrequencyNumpadOkCommand { get; }
 
         private void Quit()
         {
@@ -133,6 +151,16 @@ namespace CapstoneController.ViewModels
 
             SetFrequencyHz = hz;
             CurrentFrequencyDisplay = $"{hz:0.###} Hz";
+
+            // If the native loop is already running, update frequency in-place.
+            if (_nativeRunTask is { IsCompleted: false })
+            {
+                var rc = NativeMethods.SetFrequencyHz(hz);
+                StatusText = rc == 0
+                    ? $"Frequency updated to {hz:0.###} Hz"
+                    : "Failed to update frequency";
+                return;
+            }
 
             StatusText = $"Manual frequency set to {hz:0.###} Hz";
 
@@ -221,10 +249,16 @@ namespace CapstoneController.ViewModels
 
             if (_nativeRunTask is { IsCompleted: false })
             {
-                StatusText = "Stop requested (native stop not exposed)";
+                _stopRequested = true;
+                CurrentFrequencyDisplay = "0 Hz";
+                var rc = NativeMethods.Stop();
+                StatusText = rc == 0 ? "Stopping output…" : "Output already stopped";
                 return;
             }
 
+            // Best-effort stop even if not running.
+            NativeMethods.Stop();
+            CurrentFrequencyDisplay = "0 Hz";
             StatusText = "Output stopped";
         }
 
@@ -232,6 +266,63 @@ namespace CapstoneController.ViewModels
         {
             IsShowingOutput = !IsShowingOutput;
             StatusText = IsShowingOutput ? "Output preview shown" : "Output preview hidden";
+        }
+
+        private void OpenFrequencyNumpad()
+        {
+            IsFrequencyNumpadOpen = true;
+        }
+
+        private void CloseFrequencyNumpad()
+        {
+            IsFrequencyNumpadOpen = false;
+        }
+
+        private void FrequencyNumpadOk()
+        {
+            IsFrequencyNumpadOpen = false;
+        }
+
+        private void FrequencyNumpadClear()
+        {
+            FrequencyInput = string.Empty;
+        }
+
+        private void FrequencyNumpadBackspace()
+        {
+            if (string.IsNullOrEmpty(FrequencyInput))
+                return;
+
+            FrequencyInput = FrequencyInput[..^1];
+        }
+
+        private void FrequencyNumpadKey(string? key)
+        {
+            if (string.IsNullOrEmpty(key))
+                return;
+
+            if (key == ".")
+            {
+                if (string.IsNullOrEmpty(FrequencyInput))
+                {
+                    FrequencyInput = "0.";
+                    return;
+                }
+
+                if (FrequencyInput.Contains('.'))
+                    return;
+
+                FrequencyInput += ".";
+                return;
+            }
+
+            if (key.Length == 1 && char.IsDigit(key[0]))
+            {
+                if (FrequencyInput == "0")
+                    FrequencyInput = key;
+                else
+                    FrequencyInput += key;
+            }
         }
 
         private static bool TryParseHz(string? text, out double hz)
@@ -325,7 +416,13 @@ namespace CapstoneController.ViewModels
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (exitCode == 0)
+                if (_stopRequested)
+                {
+                    _stopRequested = false;
+                    ConnectionStatus = "CONNECTED";
+                    StatusText = "Output stopped";
+                }
+                else if (exitCode == 0)
                 {
                     ConnectionStatus = "CONNECTED";
                     StatusText = "Native call completed successfully";

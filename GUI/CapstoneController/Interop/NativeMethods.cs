@@ -11,6 +11,12 @@ namespace CapstoneController.Interop
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         private static extern int corelib_start(int argc, IntPtr argv);
 
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int corelib_stop();
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int corelib_set_frequency_hz(double frequency_hz);
+
         internal static int Start(params string[] args)
         {
             if (args == null)
@@ -64,6 +70,16 @@ namespace CapstoneController.Interop
             return Start(
                 "corelib",
                 frequencyHz.ToString(CultureInfo.InvariantCulture));
+        }
+
+        internal static int Stop()
+        {
+            return corelib_stop();
+        }
+
+        internal static int SetFrequencyHz(double frequencyHz)
+        {
+            return corelib_set_frequency_hz(frequencyHz);
         }
 
         internal static int StartWithDevice(string device, double frequencyHz)
