@@ -8,7 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls;
 using Avalonia.Threading;
+using CapstoneController.Views;
 
 namespace CapstoneController.ViewModels
 {
@@ -17,6 +19,7 @@ namespace CapstoneController.ViewModels
         private Task<int>? _nativeRunTask;
         private CancellationTokenSource? _volumeCts;
         private bool _stopRequested;
+        private Window? _graphDetailWindow;
 
         public MainWindowViewModel()
         {
@@ -37,6 +40,9 @@ namespace CapstoneController.ViewModels
             StopCommand = new RelayCommand(StopOutput);
             ShowOutputCommand = new RelayCommand(TogglePreview);
             QuitCommand = new RelayCommand(Quit);
+
+            ZoomInCommand = new RelayCommand(ZoomIn);
+            ZoomOutCommand = new RelayCommand(ZoomOut);
 
             OpenFrequencyNumpadCommand = new RelayCommand(OpenFrequencyNumpad);
             CloseFrequencyNumpadCommand = new RelayCommand(CloseFrequencyNumpad);
@@ -104,6 +110,9 @@ namespace CapstoneController.ViewModels
         private bool isShowingOutput = true;
 
         [ObservableProperty]
+        private double graphZoom = 1.0;
+
+        [ObservableProperty]
         private double volumePercent = 50;
 
         [ObservableProperty]
@@ -115,6 +124,9 @@ namespace CapstoneController.ViewModels
         public IRelayCommand StopCommand { get; }
         public IRelayCommand ShowOutputCommand { get; }
         public IRelayCommand QuitCommand { get; }
+
+        public IRelayCommand ZoomInCommand { get; }
+        public IRelayCommand ZoomOutCommand { get; }
 
         public IRelayCommand OpenFrequencyNumpadCommand { get; }
         public IRelayCommand CloseFrequencyNumpadCommand { get; }
@@ -264,8 +276,48 @@ namespace CapstoneController.ViewModels
 
         private void TogglePreview()
         {
-            IsShowingOutput = !IsShowingOutput;
-            StatusText = IsShowingOutput ? "Output preview shown" : "Output preview hidden";
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_graphDetailWindow is { IsVisible: true })
+                {
+                    _graphDetailWindow.Activate();
+                    return;
+                }
+
+                var window = new GraphDetailWindow
+                {
+                    DataContext = this,
+                };
+
+                window.Closed += (_, _) =>
+                {
+                    if (ReferenceEquals(_graphDetailWindow, window))
+                        _graphDetailWindow = null;
+                };
+
+                _graphDetailWindow = window;
+
+                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    window.Show(desktop.MainWindow);
+                }
+                else
+                {
+                    window.Show();
+                }
+            });
+
+            StatusText = "Opened detailed graph";
+        }
+
+        private void ZoomIn()
+        {
+            GraphZoom = Math.Clamp(GraphZoom * 1.25, 0.25, 8.0);
+        }
+
+        private void ZoomOut()
+        {
+            GraphZoom = Math.Clamp(GraphZoom / 1.25, 0.25, 8.0);
         }
 
         private void OpenFrequencyNumpad()

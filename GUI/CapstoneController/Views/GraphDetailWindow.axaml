@@ -1,0 +1,116 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:CapstoneController.ViewModels"
+        xmlns:controls="using:CapstoneController.Controls"
+        mc:Ignorable="d"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        d:DesignWidth="1024"
+        d:DesignHeight="600"
+        Width="1024"
+        Height="600"
+        MinWidth="1024"
+        MinHeight="600"
+        MaxWidth="1024"
+        MaxHeight="600"
+        x:Class="CapstoneController.Views.GraphDetailWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Detailed Graph"
+        WindowState="FullScreen"
+        SystemDecorations="None"
+        Background="#11161C">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#1A222C"/>
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#2F3B4A"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#3A86FF"/>
+        <SolidColorBrush x:Key="AccentPressedBrush" Color="#2F6FD6"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F5F7FA"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B8C2CC"/>
+
+        <!-- Provide brushes the graph control looks up via TryFindResource -->
+        <SolidColorBrush x:Key="ThemeForegroundBrush" Color="#F5F7FA"/>
+        <Color x:Key="SystemAccentColor">#3A86FF</Color>
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.Label">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+
+        <Style Selector="Border.Panel">
+            <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Padding" Value="18" />
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="Height" Value="56" />
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+
+        <Style Selector="Button.Primary:pressed">
+            <Setter Property="Background" Value="{DynamicResource AccentPressedBrush}" />
+        </Style>
+
+        <Style Selector="Button.WindowClose">
+            <Setter Property="Width" Value="54" />
+            <Setter Property="Height" Value="54" />
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto"
+          Margin="18">
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+            <TextBlock FontSize="22" FontWeight="SemiBold" Text="Detailed Graph" />
+            <Button Grid.Column="1" Classes="WindowClose" Content="X" Click="CloseButton_Click" />
+        </Grid>
+
+        <Border Grid.Row="1" Classes="Panel">
+            <controls:SineWaveGraphControl
+                FrequencyHz="{Binding SetFrequencyHz}"
+                IsAnimated="{Binding IsShowingOutput}"
+                Zoom="{Binding GraphZoom}" />
+        </Border>
+
+        <Border Grid.Row="2" Classes="Panel" Margin="0,12,0,0" Padding="14">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalAlignment="Center">
+                <TextBlock Classes="Label" Text="Zoom" VerticalAlignment="Center"/>
+                <Slider Grid.Column="1"
+                        Minimum="0.25"
+                        Maximum="8"
+                        Value="{Binding GraphZoom, Mode=TwoWay}"
+                        VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Classes="Primary" Content="-" Command="{Binding ZoomOutCommand}" Width="60"/>
+                <Button Grid.Column="3" Classes="Primary" Content="+" Command="{Binding ZoomInCommand}" Width="60"/>
+            </Grid>
+        </Border>
+
+    </Grid>
+</Window>

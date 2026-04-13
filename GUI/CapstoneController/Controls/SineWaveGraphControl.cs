@@ -17,6 +17,9 @@ public sealed class SineWaveGraphControl : Control
     public static readonly StyledProperty<bool> IsAnimatedProperty =
         AvaloniaProperty.Register<SineWaveGraphControl, bool>(nameof(IsAnimated));
 
+    public static readonly StyledProperty<double> ZoomProperty =
+        AvaloniaProperty.Register<SineWaveGraphControl, double>(nameof(Zoom), 1.0);
+
     public double FrequencyHz
     {
         get => GetValue(FrequencyHzProperty);
@@ -29,12 +32,18 @@ public sealed class SineWaveGraphControl : Control
         set => SetValue(IsAnimatedProperty, value);
     }
 
+    public double Zoom
+    {
+        get => GetValue(ZoomProperty);
+        set => SetValue(ZoomProperty, value);
+    }
+
     private readonly DispatcherTimer _timer;
     private double _phaseOffset;
 
     static SineWaveGraphControl()
     {
-        AffectsRender<SineWaveGraphControl>(FrequencyHzProperty, IsAnimatedProperty);
+        AffectsRender<SineWaveGraphControl>(FrequencyHzProperty, IsAnimatedProperty, ZoomProperty);
 
         IsAnimatedProperty.Changed.AddClassHandler<SineWaveGraphControl>((control, _) =>
         {
@@ -128,8 +137,14 @@ public sealed class SineWaveGraphControl : Control
 
         var frequencyHz = Math.Max(0, FrequencyHz);
 
+        var zoom = Zoom;
+        if (double.IsNaN(zoom) || double.IsInfinity(zoom))
+            zoom = 1.0;
+        zoom = Math.Clamp(zoom, 0.25, 8.0);
+
         // Pick a time window that keeps the waveform readable (roughly ~4 cycles on screen).
-        var timeWindowSeconds = frequencyHz <= 0 ? 1.0 : Math.Clamp(4.0 / frequencyHz, 0.2, 2.0);
+        var baseTimeWindowSeconds = frequencyHz <= 0 ? 1.0 : Math.Clamp(4.0 / frequencyHz, 0.2, 2.0);
+        var timeWindowSeconds = Math.Clamp(baseTimeWindowSeconds / zoom, 0.05, 4.0);
         var amplitude = plotRect.Height * 0.35;
 
         // Ticks + labels

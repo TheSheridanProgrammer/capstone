@@ -33,6 +33,7 @@
         <SolidColorBrush x:Key="AccentBrush" Color="#3A86FF"/>
         <SolidColorBrush x:Key="AccentPressedBrush" Color="#2F6FD6"/>
         <SolidColorBrush x:Key="SuccessBrush" Color="#2E8B57"/>
+        <SolidColorBrush x:Key="SuccessPressedBrush" Color="#246B43"/>
         <SolidColorBrush x:Key="DangerBrush" Color="#B00020"/>
         <SolidColorBrush x:Key="DangerPressedBrush" Color="#8A0018"/>
         <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F5F7FA"/>
@@ -87,7 +88,8 @@
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="Foreground" Value="Black" />
         </Style>
 
         <Style Selector="Button">
@@ -106,6 +108,17 @@
 
         <Style Selector="Button.Primary:pressed">
             <Setter Property="Background" Value="{DynamicResource AccentPressedBrush}" />
+        </Style>
+
+        <Style Selector="Button.NumpadButton">
+            <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Height" Value="56" />
+            <Setter Property="FontSize" Value="20" />
+        </Style>
+
+        <Style Selector="Button.NumpadButton:pressed">
+            <Setter Property="Background" Value="{DynamicResource SuccessPressedBrush}" />
         </Style>
 
         <Style Selector="Button.EmergencyStop">
@@ -211,9 +224,11 @@
                                                     <Grid ColumnDefinitions="*,*"
                                                           ColumnSpacing="10">
                                                         <Button Grid.Column="0"
+                                                            Classes="NumpadButton"
                                                                 Content="Clear"
                                                                 Command="{Binding FrequencyNumpadClearCommand}"/>
                                                         <Button Grid.Column="1"
+                                                            Classes="NumpadButton"
                                                                 Content="Back"
                                                                 Command="{Binding FrequencyNumpadBackspaceCommand}"/>
                                                     </Grid>
@@ -222,21 +237,21 @@
                                                           RowDefinitions="Auto,Auto,Auto,Auto"
                                                           ColumnSpacing="10"
                                                           RowSpacing="10">
-                                                        <Button Grid.Row="0" Grid.Column="0" Content="7" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="7"/>
-                                                        <Button Grid.Row="0" Grid.Column="1" Content="8" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="8"/>
-                                                        <Button Grid.Row="0" Grid.Column="2" Content="9" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="9"/>
+                                                                                                                <Button Grid.Row="0" Grid.Column="0" Classes="NumpadButton" Content="7" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="7"/>
+                                                                                                                <Button Grid.Row="0" Grid.Column="1" Classes="NumpadButton" Content="8" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="8"/>
+                                                                                                                <Button Grid.Row="0" Grid.Column="2" Classes="NumpadButton" Content="9" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="9"/>
 
-                                                        <Button Grid.Row="1" Grid.Column="0" Content="4" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="4"/>
-                                                        <Button Grid.Row="1" Grid.Column="1" Content="5" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="5"/>
-                                                        <Button Grid.Row="1" Grid.Column="2" Content="6" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="6"/>
+                                                        <Button Grid.Row="1" Grid.Column="0" Classes="NumpadButton" Content="4" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="4"/>
+                                                        <Button Grid.Row="1" Grid.Column="1" Classes="NumpadButton" Content="5" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="5"/>
+                                                        <Button Grid.Row="1" Grid.Column="2" Classes="NumpadButton" Content="6" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="6"/>
 
-                                                        <Button Grid.Row="2" Grid.Column="0" Content="1" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="1"/>
-                                                        <Button Grid.Row="2" Grid.Column="1" Content="2" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="2"/>
-                                                        <Button Grid.Row="2" Grid.Column="2" Content="3" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="3"/>
+                                                        <Button Grid.Row="2" Grid.Column="0" Classes="NumpadButton" Content="1" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="1"/>
+                                                        <Button Grid.Row="2" Grid.Column="1" Classes="NumpadButton" Content="2" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="2"/>
+                                                        <Button Grid.Row="2" Grid.Column="2" Classes="NumpadButton" Content="3" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="3"/>
 
-                                                        <Button Grid.Row="3" Grid.Column="0" Content="0" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="0"/>
-                                                        <Button Grid.Row="3" Grid.Column="1" Content="." Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="."/>
-                                                        <Button Grid.Row="3" Grid.Column="2" Classes="Primary" Content="OK" Command="{Binding FrequencyNumpadOkCommand}"/>
+                                                        <Button Grid.Row="3" Grid.Column="0" Classes="NumpadButton" Content="0" Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="0"/>
+                                                        <Button Grid.Row="3" Grid.Column="1" Classes="NumpadButton" Content="." Command="{Binding FrequencyNumpadKeyCommand}" CommandParameter="."/>
+                                                        <Button Grid.Row="3" Grid.Column="2" Classes="NumpadButton" Content="OK" Command="{Binding FrequencyNumpadOkCommand}"/>
                                                     </Grid>
                                                 </StackPanel>
                                             </Border>
@@ -341,8 +356,8 @@
                                    Text="Display-only preview of the generated waveform"/>
 
                         <controls:SineWaveGraphControl Height="250"
-                                                       FrequencyHz="{Binding SetFrequencyHz}"
-                                                       IsAnimated="{Binding IsShowingOutput}"/>
+                                           FrequencyHz="{Binding SetFrequencyHz}"
+                                           IsAnimated="{Binding IsShowingOutput}"/>
 
                         <Grid ColumnDefinitions="Auto,*,Auto"
                               ColumnSpacing="12"
@@ -360,8 +375,8 @@
                         </Grid>
 
                         <Button Classes="Primary"
-                                Content="Toggle Preview"
-                                Command="{Binding ShowOutputCommand}"/>
+                            Content="Toggle"
+                            Command="{Binding ShowOutputCommand}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
