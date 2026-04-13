@@ -1,2 +1,0 @@
-C:\Users\absai\Desktop\.NET\VS\CapstoneController\CapstoneController\bin\Release\net9.0\linux-arm64\publish\CapstoneController.pdb
-C:\Users\absai\Desktop\.NET\VS\CapstoneController\CapstoneController\bin\Release\net9.0\linux-arm64\publish\CapstoneController
